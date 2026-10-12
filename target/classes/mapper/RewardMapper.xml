@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="crowdfunding.model.dao.RewardMapper">
+
+    <insert id="insertReward" parameterType="Reward" useGeneratedKeys="true" keyProperty="rewardId">
+        INSERT INTO reward (reward_name, reward_amount, reward_price, applied_count, reward_delivery_date,
+                            reward_description, project_id, reward_image, reward_image_type)
+        VALUES (#{rewardName}, #{rewardAmount}, #{rewardPrice}, #{appliedCount}, #{rewardDeliveryDate},
+                #{rewardDescription}, #{projectId}, #{rewardImage}, #{rewardImageType})
+    </insert>
+
+    <!-- 이미지 원본(MEDIUMBLOB)은 목록에서 빼고 크기만 조회 -->
+    <select id="findViewsByProject" resultType="RewardView">
+        SELECT reward_id, project_id, reward_name, reward_description, reward_price,
+               reward_amount, applied_count, reward_delivery_date, reward_image_type,
+               LENGTH(reward_image) AS image_size
+        FROM reward
+        WHERE project_id = #{projectId}
+        ORDER BY reward_id
+    </select>
+
+    <select id="countByProject" resultType="int">
+        SELECT COUNT(*) FROM reward WHERE project_id = #{projectId}
+    </select>
+
+    <!-- =====================================================================
+         ★ 동시성 제어 1단계: 비관적 락 (SELECT ... FOR UPDATE)
+           트랜잭션이 끝날 때까지 이 리워드 행을 다른 트랜잭션이 수정/잠금할 수 없다.
+           → 남은 수량 확인과 차감 사이에 다른 요청이 끼어들 수 없음
+           useCache=false, flushCache=true : MyBatis 1차 캐시를 쓰지 않고 항상 DB 를 읽게 함
+         ===================================================================== -->
+    <select id="findByIdForUpdate" resultType="Reward" useCache="false" flushCache="true">
+        SELECT reward_id, project_id, reward_name, reward_description, reward_price,
+               reward_amount, applied_count, reward_delivery_date, reward_image_type
+        FROM reward
+        WHERE reward_id = #{rewardId}
+        FOR UPDATE
+    </select>
+
+    <!-- 동시성 제어 2단계: 조건부 UPDATE (수량이 남아 있을 때만 +1)
+         3단계: 테이블의 CHECK(ck_reward_applied) 가 applied_count <= reward_amount 를 최종 보장 -->
+    <update id="increaseAppliedCount">
+        UPDATE reward
+        SET applied_count = applied_count + 1
+        WHERE reward_id = #{rewardId}
+          AND (reward_amount IS NULL OR applied_count &lt; reward_amount)
+    </update>
+
+    <!-- 리워드별 펀딩 현황: 리워드 1행에 신청한 서포터 N명을 <collection> 으로 묶는다 -->
+    <resultMap id="rewardFundingStatusMap" type="RewardFundingStatus">
+        <id     property="rewardId"           column="reward_id"/>
+        <result property="projectId"          column="project_id"/>
+        <result property="rewardName"         column="reward_name"/>
+        <result property="rewardDescription"  column="reward_description"/>
+        <result property="rewardPrice"        column="reward_price"/>
+        <result property="rewardAmount"       column="reward_amount"/>
+        <result property="appliedCount"       column="applied_count"/>
+        <result property="rewardDeliveryDate" column="reward_delivery_date"/>
+        <result property="rewardImageType"    column="reward_image_type"/>
+        <result property="imageSize"          column="image_size"/>
+        <!-- 신청자가 없으면 supporter_id 가 NULL → 빈 리스트 -->
+        <collection property="supporters" ofType="FundingSupporter" notNullColumn="supporter_id">
+            <id     property="userId"          column="supporter_id"/>
+            <result property="userName"        column="supporter_name"/>
+            <result property="phoneNumber"     column="supporter_phone"/>
+            <result property="deliveryAddress" column="delivery_address"/>
+            <result property="fundedDate"      column="funded_date"/>
+        </collection>
+    </resultMap>
+
+    <select id="findFundingStatusByProject" resultMap="rewardFundingStatusMap">
+        SELECT r.reward_id, r.project_id, r.reward_name, r.reward_description, r.reward_price,
+               r.reward_amount, r.applied_count, r.reward_delivery_date, r.reward_image_type,
+               LENGTH(r.reward_image) AS image_size,
+               f.user_id      AS supporter_id,
+               u.user_name    AS supporter_name,
+               u.phone_number AS supporter_phone,
+               s.delivery_address,
+               f.funded_date
+        FROM reward r
+        LEFT JOIN funding   f ON f.reward_id = r.reward_id
+        LEFT JOIN supporter s ON s.user_id   = f.user_id
+        LEFT JOIN `user`    u ON u.user_id   = f.user_id
+        WHERE r.project_id = #{projectId}
+        ORDER BY r.reward_id, f.funded_date, f.user_id
+    </select>
+</mapper>

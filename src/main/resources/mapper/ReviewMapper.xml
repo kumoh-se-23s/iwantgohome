@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="crowdfunding.model.dao.ReviewMapper">
+
+    <insert id="insertReview" parameterType="Review" useGeneratedKeys="true" keyProperty="reviewId">
+        INSERT INTO review (review_content, rating, review_at, user_id, project_id)
+        VALUES (#{reviewContent}, #{rating}, IFNULL(#{reviewAt}, NOW()), #{userId}, #{projectId})
+    </insert>
+
+    <select id="existsByUserAndProject" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM review WHERE user_id = #{userId} AND project_id = #{projectId})
+    </select>
+
+    <!-- 리워드명 / 별점 / 리뷰 — 리뷰 작성자의 후원 기록(funding)을 통해 신청한 리워드 이름을 가져온다. 최신순 -->
+    <select id="findViewsByProject" resultType="ReviewView">
+        SELECT rv.review_id, rv.project_id, u.user_name, r.reward_name,
+               rv.rating, rv.review_content, rv.review_at
+        FROM review rv
+        JOIN funding f ON f.user_id = rv.user_id AND f.project_id = rv.project_id
+        JOIN reward  r ON r.reward_id = f.reward_id
+        JOIN `user`  u ON u.user_id   = rv.user_id
+        WHERE rv.project_id = #{projectId}
+        ORDER BY rv.review_at DESC, rv.review_id DESC
+    </select>
+</mapper>
