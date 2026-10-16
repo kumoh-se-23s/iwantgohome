@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- supporter 테이블 (user 와 1:1) -->
+<mapper namespace="crowdfunding.model.dao.SupporterMapper">
+
+    <select id="findByUserId" resultType="Supporter">
+        SELECT user_id, delivery_address, birth_date
+          FROM supporter
+         WHERE user_id = #{userId}
+    </select>
+
+    <!-- EXISTS 결과(1/0)는 자바 boolean 으로 받는다 -->
+    <select id="exists" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM supporter WHERE user_id = #{userId})
+    </select>
+
+    <!-- [D · 검사 05] 배송지 · 생년월일 수정 -->
+    <update id="update" parameterType="Supporter">
+        UPDATE supporter
+           SET delivery_address = #{deliveryAddress},
+               birth_date       = #{birthDate, jdbcType=DATE}
+         WHERE user_id = #{userId}
+    </update>
+
+</mapper>

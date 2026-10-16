@@ -1,19 +1,30 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- funding 테이블 (신청 현황). PK (user_id, project_id) → 프로젝트당 1회 후원 -->
 <mapper namespace="crowdfunding.model.dao.FundingMapper">
 
-    <!-- funded_date 를 비워 두면 현재 시각 (시드 데이터는 과거 시각을 넣는다) -->
-    <insert id="insertFunding" parameterType="Funding">
-        INSERT INTO funding (user_id, project_id, reward_id, funded_date)
-        VALUES (#{userId}, #{projectId}, #{rewardId}, IFNULL(#{fundedDate}, NOW()))
-    </insert>
-
-    <select id="findByUserAndProject" resultType="Funding">
-        SELECT user_id, project_id, reward_id, funded_date
-        FROM funding
-        WHERE user_id = #{userId} AND project_id = #{projectId}
+    <select id="exists" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM funding WHERE user_id = #{userId} AND project_id = #{projectId})
     </select>
 
-    <!-- [2차] 후원 취소: deleteFunding, MyPage 후원 내역: findMyFundings 를 여기에 추가 -->
+    <!--
+        [C · 검사 08·10] 후원 기록 추가. funded_date 는 DB 기본값(현재 시각)
+        - 같은 서포터·프로젝트가 이미 있으면 PK 중복 오류(1062) → Service 가 "이미 후원" 으로 바꿔 알려 준다
+        - (reward_id, project_id) 복합 FK 때문에 다른 프로젝트의 리워드로는 신청할 수 없다
+    -->
+    <insert id="insert">
+        INSERT INTO funding (user_id, project_id, reward_id)
+        VALUES (#{userId}, #{projectId}, #{rewardId})
+    </insert>
+
+    <select id="find" resultType="Funding">
+        SELECT user_id, project_id, reward_id, funded_date
+          FROM funding
+         WHERE user_id = #{userId} AND project_id = #{projectId}
+    </select>
+
+    <select id="countByReward" resultType="int">
+        SELECT COUNT(*) FROM funding WHERE reward_id = #{rewardId}
+    </select>
+
 </mapper>

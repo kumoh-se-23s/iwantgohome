@@ -1,2 +1,14 @@
+# IDE
 .idea
 .vscode
+*.iml
+out/
+
+# Build output
+target/
+build/
+.gradle/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,57 +1,68 @@
 package crowdfunding.model.service;
 
 import crowdfunding.config.AppConfig;
-import crowdfunding.config.TransactionManager;
+import crowdfunding.exception.BusinessException;
 import crowdfunding.model.dao.ProjectMapper;
 import crowdfunding.model.domain.Project;
-import crowdfunding.model.dto.ProjectSummary;
 import crowdfunding.model.enums.ApprovalStatus;
-
-import java.util.List;
-
-import static crowdfunding.model.service.Validator.require;
+import crowdfunding.model.enums.Role;
+import lombok.RequiredArgsConstructor;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
 
 /**
  * 관리자 기능
- * <pre>
- *  1차: 승인 대기 목록, 프로젝트 승인
- *  2차: 거절 + 사유 작성(rejectProject), 전체 프로젝트 펀딩 현황 + 정렬(getFundingOverview)
- * </pre>
+ *
+ *   [검사 4] approveProject : 승인 대기 → 승인 (project_status = in_progress, 서포터에게 공개)
+ *   [2차]    rejectProject  : 거절 + 사유 작성 → 12월 데모 때 추가
+ *
+ * [담당] A (검사 04)
  */
+@RequiredArgsConstructor
 public class AdminService {
 
-    /** 승인 대기 중인 프로젝트 (먼저 신청한 순) */
-    public List<ProjectSummary> getWaitingProjects() {
-        return TransactionManager.execute(session ->
-                session.getMapper(ProjectMapper.class).findByApprovalStatus(ApprovalStatus.WAITING, AppConfig.today()));
+    private final SqlSessionFactory sqlSessionFactory;   // Main 에서 생성자로 넣어 준다
+
+    /** [검사 4] 메이커의 프로젝트 등록 신청 승인 */
+    public void approveProject(int adminId, int projectId) {
+        try (SqlSession session = sqlSessionFactory.openSession(false)) {
+            try {
+                ServiceGuard.requireUser(session, adminId, Role.ADMIN);
+                Project project = ServiceGuard.requireProject(session, projectId);
+
+                if (!ApprovalStatus.WAITING.matches(project.getApprovalStatus())) {
+                    throw new BusinessException("승인 대기 중인 프로젝트만 승인할 수 있습니다. (현재: "
+                            + ApprovalStatus.labelOf(project.getApprovalStatus()) + ")");
+                }
+                if (project.getEndDate().isBefore(AppConfig.today())) {
+                    throw new BusinessException("펀딩 종료일이 이미 지난 프로젝트는 승인할 수 없습니다.");
+                }
+
+                // 승인 상태와 진행 상태를 한 문장으로 같이 바꾼다 (DB CHECK 제약)
+                if (session.getMapper(ProjectMapper.class).approve(projectId) != 1) {
+                    throw new BusinessException("승인에 실패했습니다. 다시 시도해 주세요.");
+                }
+                session.commit();
+            } catch (RuntimeException e) {
+                session.rollback();
+                throw e;
+            }
+        }
     }
 
-    /** 승인 → 서포터에게 공개되고 펀딩 진행 중(in_progress)이 된다 */
-    public void approveProject(int projectId) {
-        TransactionManager.run(session -> {
-            ProjectMapper mapper = session.getMapper(ProjectMapper.class);
-            Project project = mapper.findById(projectId);
-            require(project != null, projectId + "번 프로젝트가 존재하지 않습니다.");
-            require(project.getApprovalStatus() == ApprovalStatus.WAITING,
-                    "승인 대기 중인 프로젝트만 승인할 수 있습니다. (현재: " + project.getApprovalStatus().getLabel() + ")");
-            require(!project.getEndDate().isBefore(AppConfig.today()),
-                    "종료일이 이미 지난 프로젝트는 승인할 수 없습니다.");
+    // ---------------------------------------------------------------- 조회
 
-            // WHERE approval_status = 'waiting' 조건 → 관리자 두 명이 동시에 눌러도 한 번만 처리
-            int changed = mapper.approve(projectId);
-            require(changed == 1, "이미 처리된 프로젝트입니다.");
-        });
+    public Project findProject(int projectId) {
+        try (SqlSession session = sqlSessionFactory.openSession(false)) {
+            return session.getMapper(ProjectMapper.class).findById(projectId);
+        }
     }
 
-    // [2차] 거절 및 사유 작성
-    // public void rejectProject(int projectId, String reason) {
-    //     reason 필수 → WAITING 확인 → projectMapper.reject(projectId, reason)
-    //     (CHECK ck_project_reject: reject 상태면 reject_reason NOT NULL)
-    // }
-
-    // [2차] 프로젝트별 펀딩 현황 (기본 최신순 + 총 펀딩 금액/달성률/서포터 수 오름·내림차순)
-    // public List<ProjectSummary> getFundingOverview(AdminSort sort, boolean ascending) {
-    //     ProjectMapper.xml 에 <choose> 로 ORDER BY 를 고르는 쿼리 추가
-    //     상세는 MakerService.buildFundingStatus(session, projectId) 재사용
-    // }
+    /** 가장 최근에 승인 신청이 들어온 프로젝트 번호 (없으면 null) */
+    public Integer findLatestWaitingProjectId() {
+        try (SqlSession session = sqlSessionFactory.openSession(false)) {
+            return session.getMapper(ProjectMapper.class)
+                    .findLatestProjectId(null, ApprovalStatus.WAITING.getValue());
+        }
+    }
 }

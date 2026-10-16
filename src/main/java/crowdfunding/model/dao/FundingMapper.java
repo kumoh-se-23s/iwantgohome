@@ -3,11 +3,17 @@ package crowdfunding.model.dao;
 import crowdfunding.model.domain.Funding;
 import org.apache.ibatis.annotations.Param;
 
-/** funding(신청 현황) 테이블 DAO — SQL 은 resources/mapper/FundingMapper.xml */
+/** funding 테이블 SQL (resources/mapper/FundingMapper.xml) */
 public interface FundingMapper {
 
-    /** PK(user_id, project_id) 가 이미 있으면 DuplicateKey 오류 → 한 프로젝트에 한 번만 후원 */
-    int insertFunding(Funding funding);
+    /** 이 서포터가 이 프로젝트에 이미 후원했는지 */
+    boolean exists(@Param("userId") int userId, @Param("projectId") int projectId);
 
-    Funding findByUserAndProject(@Param("userId") int userId, @Param("projectId") int projectId);
+    /** 후원 기록 추가 (신청일은 DB 기본값 CURRENT_TIMESTAMP) */
+    int insert(@Param("userId") int userId, @Param("projectId") int projectId, @Param("rewardId") int rewardId);
+
+    Funding find(@Param("userId") int userId, @Param("projectId") int projectId);
+
+    /** 이 리워드의 실제 후원 기록 수 (applied_count 와 같아야 정상) */
+    int countByReward(@Param("rewardId") int rewardId);
 }

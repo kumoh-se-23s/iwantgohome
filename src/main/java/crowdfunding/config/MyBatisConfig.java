@@ -1,65 +1,46 @@
 package crowdfunding.config;
 
 import org.apache.ibatis.io.Resources;
+import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.session.SqlSessionFactoryBuilder;
+import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 
+import javax.sql.DataSource;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.Reader;
-import java.util.Properties;
+import java.io.UncheckedIOException;
 
 /**
- * MyBatis SqlSessionFactory 를 프로그램 전체에서 하나만 만들어 공유한다. (스레드 안전)
- * <p>
- * SqlSession(=DB 커넥션 1개 + 트랜잭션)은 스레드 안전하지 않으므로
- * 요청(서비스 메소드 호출)마다 새로 열고 닫는다 → {@link TransactionManager}
- * <p>
- * 클라이언트 프로그램(ClientMain)은 이 클래스를 사용하지 않는다 — 사용자는 DB 에 직접 접근할 수 없음.
+ * 커넥션 풀(DataSource)을 받아서 MyBatis 의 SqlSessionFactory 를 만든다.
+ *
+ *   PooledDataSource (DBCP 커넥션 풀)  ─→  MyBatisConfig  ─→  SqlSessionFactory  ─→  각 Service
+ *
+ * - mybatis-config.xml : 설정(카멜케이스 자동 변환 등), 별칭, Mapper XML 목록
+ * - DataSource         : MyBatis 기본 풀 대신 3주차에 배운 DBCP 커넥션 풀을 그대로 사용
+ * - 트랜잭션            : JDBC 방식 → Service 가 commit() / rollback() 을 직접 호출
+ *
+ * Main 에서 한 번만 만들고, 각 Service 생성자에 넘겨준다.
+ * SqlSessionFactory 는 여러 스레드가 같이 써도 안전하다.
+ *
+ * [담당] 공통 기반
  */
 public final class MyBatisConfig {
 
-    private static final String CONFIG_FILE = "mybatis-config.xml";
-    private static final String DB_PROPERTIES = "db.properties";
-    private static volatile SqlSessionFactory factory;
+    private static final String MYBATIS_CONFIG = "mybatis-config.xml";
 
     private MyBatisConfig() {
     }
 
-    public static SqlSessionFactory getSqlSessionFactory() {
-        if (factory == null) {
-            synchronized (MyBatisConfig.class) {
-                if (factory == null) {
-                    factory = build();
-                }
-            }
-        }
-        return factory;
-    }
-
-    private static SqlSessionFactory build() {
-        try (Reader reader = Resources.getResourceAsReader(CONFIG_FILE)) {
-            return new SqlSessionFactoryBuilder().build(reader, loadDbProperties());
+    public static SqlSessionFactory createSqlSessionFactory(DataSource dataSource) {
+        try (Reader reader = Resources.getResourceAsReader(MYBATIS_CONFIG)) {
+            SqlSessionFactory factory = new SqlSessionFactoryBuilder().build(reader);
+            // mybatis-config.xml 에는 DB 접속 정보를 두지 않고, 여기서 DBCP 커넥션 풀을 연결한다
+            factory.getConfiguration().setEnvironment(
+                    new Environment("local", new JdbcTransactionFactory(), dataSource));
+            return factory;
         } catch (IOException e) {
-            throw new IllegalStateException(CONFIG_FILE + " 을 읽을 수 없습니다.", e);
+            throw new UncheckedIOException(MYBATIS_CONFIG + " 파일을 읽을 수 없습니다.", e);
         }
-    }
-
-    /**
-     * db.properties 를 읽고, JVM 옵션(-Ddb.url=... -Ddb.username=... -Ddb.password=...)이 있으면 그 값으로 덮어쓴다.
-     * → 노트북마다 비밀번호가 달라도 파일을 고치지 않고 실행 옵션으로 바꿀 수 있다.
-     */
-    private static Properties loadDbProperties() throws IOException {
-        Properties props = new Properties();
-        try (InputStream in = Resources.getResourceAsStream(DB_PROPERTIES)) {
-            props.load(in);
-        }
-        for (String key : new String[]{"db.driver", "db.url", "db.username", "db.password"}) {
-            String override = System.getProperty(key);
-            if (override != null) {
-                props.setProperty(key, override);
-            }
-        }
-        return props;
     }
 }

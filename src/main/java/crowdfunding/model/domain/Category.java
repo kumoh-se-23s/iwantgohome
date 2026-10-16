@@ -1,23 +1,19 @@
 package crowdfunding.model.domain;
 
-import java.io.Serializable;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
-/** category 테이블 1행 */
-public class Category implements Serializable {
-    private static final long serialVersionUID = 1L;
+/**
+ * category 테이블 한 행.
+ *
+ * [담당] 공통 기반
+ */
+@Getter
+@Setter
+@ToString
+public class Category {
 
-    private Integer categoryId;
+    private int categoryId;
     private String categoryName;
-
-    public Category() {
-    }
-
-    public Category(String categoryName) {
-        this.categoryName = categoryName;
-    }
-
-    public Integer getCategoryId() { return categoryId; }
-    public void setCategoryId(Integer categoryId) { this.categoryId = categoryId; }
-    public String getCategoryName() { return categoryName; }
-    public void setCategoryName(String categoryName) { this.categoryName = categoryName; }
 }

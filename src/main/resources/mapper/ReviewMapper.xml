@@ -1,26 +1,35 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- review 테이블. (user_id, project_id) 가 funding 을 참조 → 후원한 프로젝트에만 리뷰 가능 -->
 <mapper namespace="crowdfunding.model.dao.ReviewMapper">
 
-    <insert id="insertReview" parameterType="Review" useGeneratedKeys="true" keyProperty="reviewId">
-        INSERT INTO review (review_content, rating, review_at, user_id, project_id)
-        VALUES (#{reviewContent}, #{rating}, IFNULL(#{reviewAt}, NOW()), #{userId}, #{projectId})
-    </insert>
-
-    <select id="existsByUserAndProject" resultType="boolean">
+    <select id="exists" resultType="boolean">
         SELECT EXISTS (SELECT 1 FROM review WHERE user_id = #{userId} AND project_id = #{projectId})
     </select>
 
-    <!-- 리워드명 / 별점 / 리뷰 — 리뷰 작성자의 후원 기록(funding)을 통해 신청한 리워드 이름을 가져온다. 최신순 -->
-    <select id="findViewsByProject" resultType="ReviewView">
-        SELECT rv.review_id, rv.project_id, u.user_name, r.reward_name,
-               rv.rating, rv.review_content, rv.review_at
-        FROM review rv
-        JOIN funding f ON f.user_id = rv.user_id AND f.project_id = rv.project_id
-        JOIN reward  r ON r.reward_id = f.reward_id
-        JOIN `user`  u ON u.user_id   = rv.user_id
-        WHERE rv.project_id = #{projectId}
-        ORDER BY rv.review_at DESC, rv.review_id DESC
+    <!-- [C · 검사 09] 리뷰 등록. review_at 은 DB 기본값(현재 시각) -->
+    <insert id="insert" parameterType="Review"
+            useGeneratedKeys="true" keyProperty="reviewId" keyColumn="review_id">
+        INSERT INTO review (review_content, rating, user_id, project_id)
+        VALUES (#{reviewContent, jdbcType=VARCHAR}, #{rating}, #{userId}, #{projectId})
+    </insert>
+
+    <!-- 리워드명 / 별점 / 리뷰 : review → funding(같은 서포터·프로젝트) → reward 로 리워드명을 찾는다 -->
+    <select id="findView" resultType="ReviewView">
+        SELECT v.review_id,
+               p.project_name,
+               r.reward_name,
+               u.user_name,
+               v.rating,
+               v.review_content,
+               v.review_at
+          FROM review v
+          JOIN funding f ON f.user_id = v.user_id AND f.project_id = v.project_id
+          JOIN reward  r ON r.reward_id = f.reward_id
+          JOIN project p ON p.project_id = v.project_id
+          JOIN `user`  u ON u.user_id = v.user_id
+         WHERE v.user_id = #{userId}
+           AND v.project_id = #{projectId}
     </select>
+
 </mapper>

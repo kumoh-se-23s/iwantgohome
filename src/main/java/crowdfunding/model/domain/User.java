@@ -1,45 +1,27 @@
 package crowdfunding.model.domain;
 
-import crowdfunding.model.enums.Role;
-
-import java.io.Serializable;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 /**
- * user 테이블 1행.
- * DB 컬럼 id / pw 는 의미가 잘 드러나도록 자바에서는 loginId / password 로 부른다
- * (UserMapper.xml 의 resultMap 에서 매핑).
+ * user 테이블 한 행.
+ *
+ * DB 컬럼 id(로그인 아이디)는 user_id(PK)와 헷갈리기 쉬워서 자바에서는 loginId 로 부른다.
+ * (Mapper XML 에서 "id AS login_id" 로 별칭을 붙여 연결)
+ *
+ * [담당] 공통 기반
  */
-public class User implements Serializable {
-    private static final long serialVersionUID = 1L;
+@Getter
+@Setter
+@ToString
+public class User {
 
-    private Integer userId;       // user_id (PK, AUTO_INCREMENT)
-    private String loginId;       // id      (로그인 아이디 5~10자, 대소문자 구분)
-    private String password;      // pw      (8~16자)
-    private Role role;            // role
-    private String userName;      // user_name (2~10자)
-    private String phoneNumber;   // phone_number (010-0000-0000)
-
-    public User() {
-    }
-
-    public User(String loginId, String password, Role role, String userName, String phoneNumber) {
-        this.loginId = loginId;
-        this.password = password;
-        this.role = role;
-        this.userName = userName;
-        this.phoneNumber = phoneNumber;
-    }
-
-    public Integer getUserId() { return userId; }
-    public void setUserId(Integer userId) { this.userId = userId; }
-    public String getLoginId() { return loginId; }
-    public void setLoginId(String loginId) { this.loginId = loginId; }
-    public String getPassword() { return password; }
-    public void setPassword(String password) { this.password = password; }
-    public Role getRole() { return role; }
-    public void setRole(Role role) { this.role = role; }
-    public String getUserName() { return userName; }
-    public void setUserName(String userName) { this.userName = userName; }
-    public String getPhoneNumber() { return phoneNumber; }
-    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+    private int userId;          // user_id      PK
+    private String loginId;      // id           로그인 아이디 (5~10자)
+    @ToString.Exclude   // 비밀번호는 출력하지 않는다
+    private String pw;           // pw           비밀번호 (8~16자)
+    private String role;         // role         supporter / maker / admin
+    private String userName;     // user_name    이름 (2~10자)
+    private String phoneNumber;  // phone_number 010-0000-0000
 }

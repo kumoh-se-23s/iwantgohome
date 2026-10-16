@@ -1,125 +1,154 @@
 package crowdfunding.dbtest;
 
 import crowdfunding.config.AppConfig;
+import crowdfunding.exception.BusinessException;
 import crowdfunding.model.domain.Project;
 import crowdfunding.model.domain.Reward;
-import crowdfunding.model.dto.FundingStatus;
-import crowdfunding.model.dto.LoginUser;
-import crowdfunding.model.dto.ProjectSummary;
 import crowdfunding.model.enums.ApprovalStatus;
-import crowdfunding.protocol.Response;
+import crowdfunding.model.service.FundingStatusService;
+import crowdfunding.model.service.MakerProjectService;
 import crowdfunding.view.ResultView;
+import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
 
-/** 1차 검사 — 메이커 (검사 1, 2, 3) */
-public class MakerTest extends DbTestSupport {
+/**
+ * 메이커 검사 항목
+ *   [검사 1] test01ViewFundingStatus : 프로젝트별 펀딩 현황 보기
+ *   [검사 2] test02RegisterProject   : 프로젝트 기본 정보 등록
+ *   [검사 3] test03RegisterReward    : 리워드 등록 후 프로젝트 신청
+ *
+ * 테스트는 Mapper 를 직접 부르지 않고 Service 를 호출한다.
+ * → 12월 최종 시스템에서도 같은 Service 를 그대로 쓴다.
+ *
+ * [담당] D (검사 01), A (검사 02·03)
+ */
+@RequiredArgsConstructor
+public class MakerTest {
 
-    // ===== 검사 시 수정 가능한 값 =====
-    /** 검사 1: 특정 프로젝트만 보려면 번호 입력 (null = maker01 의 승인된 프로젝트 전부) */
-    private static final Integer TEST01_PROJECT_ID = null;
-    /** 검사 3: 리워드를 등록할 프로젝트 번호 (null = maker01 의 가장 최근 '작성 중' 프로젝트 = 검사 2에서 만든 것) */
-    private static final Integer TEST03_PROJECT_ID = null;
+    // ============================================================================
+    //  검사 때 바꿔도 되는 값 (번호는 initDB 기준)
+    // ============================================================================
+    /** 검사하는 메이커: 2 = maker01 (김민수, 프로젝트 1·2·3·7) / 3 = maker02 (이수진) */
+    private static final int MAKER_ID = 2;
 
-    /**
-     * 검사 1. 프로젝트별 펀딩 현황 보기
-     * 프로젝트별 총 펀딩 금액, 리워드별 신청 수량 / 잔여 수량 / 서포터 및 서포터의 배송지
-     */
+    /** [검사 2] 등록할 프로젝트 */
+    private static final String TEST02_NAME = "[검사] 휴대용 미니 가습기";
+    private static final String TEST02_DESCRIPTION = "USB-C 충전식 300ml 미니 가습기, 무드등 겸용";
+    private static final int TEST02_CATEGORY_ID = 1;           // 1 테크·가전, 2 푸드
+    private static final int TEST02_TARGET_AMOUNT = 1_000_000;
+    private static final int TEST02_PERIOD_DAYS = 30;          // 오늘부터 30일 동안 펀딩
+
+    /** [검사 3] 리워드를 등록할 프로젝트. 0 이면 MAKER_ID 의 가장 최근 '작성 중' 프로젝트(= test02 결과)를 자동 선택 */
+    private static final int TEST03_TARGET_PROJECT_ID = 0;
+    // ============================================================================
+
+    // 사용할 Service 들 - Main 에서 만들어서 생성자로 넣어 준다 (@RequiredArgsConstructor)
+    private final FundingStatusService fundingStatusService;
+    private final MakerProjectService makerProjectService;
+
+    /** [검사 1] 프로젝트별 펀딩 현황 보기 (총 펀딩 금액, 리워드별 신청 수량/잔여 수량, 서포터 및 배송지) */
     public void test01ViewFundingStatus() {
-        header("01", "MAKER", "프로젝트별 펀딩 현황 보기");
-        LoginUser maker = login(DataInitializer.MAKER1_ID, DataInitializer.MAKER_PW);
-
-        List<Integer> projectIds;
-        if (TEST01_PROJECT_ID != null) {
-            projectIds = List.of(TEST01_PROJECT_ID);
-        } else {
-            projectIds = ctx.maker().getMyProjects(maker).getData().stream()
-                    .filter(p -> p.getApprovalStatus() == ApprovalStatus.APPROVED)
-                    .map(ProjectSummary::getProjectId)
-                    .collect(Collectors.toList());
+        ResultView.title("[검사 1] MAKER - 프로젝트별 펀딩 현황 보기 (메이커 user " + MAKER_ID + ")");
+        try {
+            ResultView.fundingStatus(fundingStatusService.getFundingStatus(MAKER_ID));
+        } catch (BusinessException e) {
+            ResultView.fail(e.getMessage());
         }
-
-        for (int projectId : projectIds) {
-            Response<FundingStatus> res = ctx.maker().getFundingStatus(maker, projectId);
-            if (res.isSuccess()) {
-                ResultView.printFundingStatus(res.getData());
-            } else {
-                ResultView.printResponse(res);
-            }
-        }
-        checkSql("SELECT p.project_id, p.project_name, SUM(r.reward_price) AS total_amount, COUNT(*) AS supporters",
-                "  FROM project p JOIN funding f ON f.project_id = p.project_id JOIN reward r ON r.reward_id = f.reward_id",
-                "  WHERE p.user_id = 2 GROUP BY p.project_id;",
-                "SELECT reward_id, project_id, reward_name, reward_amount, applied_count FROM reward WHERE project_id IN (1, 2, 3);",
-                "SELECT f.project_id, f.reward_id, u.user_name, s.delivery_address FROM funding f",
-                "  JOIN supporter s ON s.user_id = f.user_id JOIN `user` u ON u.user_id = f.user_id WHERE f.project_id IN (1, 2, 3);");
+        ResultView.checkSql(
+                "SELECT f.project_id, SUM(r.reward_price) AS total_amount, COUNT(*) AS supporters FROM funding f "
+                        + "JOIN reward r ON r.reward_id = f.reward_id JOIN project p ON p.project_id = f.project_id "
+                        + "WHERE p.user_id = " + MAKER_ID + " GROUP BY f.project_id;",
+                "SELECT r.project_id, r.reward_id, r.reward_name, r.applied_count, r.reward_amount, "
+                        + "r.reward_amount - r.applied_count AS remaining, u.user_name, s.delivery_address "
+                        + "FROM reward r JOIN project p ON p.project_id = r.project_id "
+                        + "LEFT JOIN funding f ON f.reward_id = r.reward_id LEFT JOIN `user` u ON u.user_id = f.user_id "
+                        + "LEFT JOIN supporter s ON s.user_id = f.user_id "
+                        + "WHERE p.user_id = " + MAKER_ID + " AND p.approval_status = 'approved' "
+                        + "ORDER BY r.project_id, r.reward_id;");
     }
 
-    /** 검사 2. 프로젝트 기본 정보 등록 → approval_status = 'draft'(작성 중) 로 저장 */
+    /** [검사 2] 프로젝트 기본 정보 등록 → approval_status = 'draft' (작성 중) */
     public void test02RegisterProject() {
-        header("02", "MAKER", "프로젝트 기본 정보 등록");
-        LoginUser maker = login(DataInitializer.MAKER1_ID, DataInitializer.MAKER_PW);
+        ResultView.title("[검사 2] MAKER - 프로젝트 기본 정보 등록 (메이커 user " + MAKER_ID + ")");
 
         LocalDate today = AppConfig.today();
-        Project project = new Project(
-                "캠핑용 LED 랜턴",                                                    // 프로젝트 이름
-                "3단계 밝기 조절, 최대 48시간 사용. 방수 IPX4, 보조배터리 기능 포함.",   // 설명
-                DataInitializer.CATEGORY_TECH,                                       // 카테고리 (1 = 테크·가전)
-                800_000,                                                             // 목표 금액
-                today,                                                               // 시작일
-                today.plusDays(30));                                                 // 종료일
+        Project project = new Project();
+        project.setProjectName(TEST02_NAME);
+        project.setProjectDescription(TEST02_DESCRIPTION);
+        project.setCategoryId(TEST02_CATEGORY_ID);
+        project.setTargetAmount(TEST02_TARGET_AMOUNT);
+        project.setStartDate(today);
+        project.setEndDate(today.plusDays(TEST02_PERIOD_DAYS));
 
-        Response<Integer> res = ctx.maker().registerProject(maker, project);
-        ResultView.printResponse(res);
-
-        ResultView.section("내 프로젝트 목록");
-        ResultView.printManagedProjectList(ctx.maker().getMyProjects(maker).getData());
-        checkSql("SELECT * FROM project ORDER BY project_id DESC LIMIT 1;");
+        try {
+            int newId = makerProjectService.registerProject(MAKER_ID, project);
+            ResultView.success("프로젝트 " + newId + "번 등록 → 리워드 등록 전이라 '작성 중(draft)' 상태");
+            ResultView.project("등록 결과", makerProjectService.findProject(newId));
+        } catch (BusinessException e) {
+            ResultView.fail("프로젝트 등록  →  " + e.getMessage());
+        }
+        ResultView.checkSql("SELECT * FROM project ORDER BY project_id DESC LIMIT 1;");
     }
 
-    /**
-     * 검사 3. 리워드 등록 후 프로젝트 신청
-     * 리워드가 없을 때 신청 → 실패 / 리워드 2개 등록(1개는 한정 수량) → 신청 → approval_status = 'waiting'
-     */
+    /** [검사 3] 리워드 등록 후 프로젝트 신청 → reward 행 추가, approval_status = 'waiting' (승인 대기) */
     public void test03RegisterReward() {
-        header("03", "MAKER", "리워드 등록 및 프로젝트 신청");
-        LoginUser maker = login(DataInitializer.MAKER1_ID, DataInitializer.MAKER_PW);
+        ResultView.title("[검사 3] MAKER - 리워드 등록 및 프로젝트 신청 (메이커 user " + MAKER_ID + ")");
 
-        List<ProjectSummary> myProjects = ctx.maker().getMyProjects(maker).getData();
-        ProjectSummary target = myProjects.stream()
-                .filter(p -> TEST03_PROJECT_ID != null
-                        ? p.getProjectId() == TEST03_PROJECT_ID
-                        : p.getApprovalStatus() == ApprovalStatus.DRAFT)
-                .findFirst()   // 목록이 최신순이므로 첫 번째 = 가장 최근
-                .orElse(null);
-        if (target == null) {
-            System.out.println("리워드를 등록할 '작성 중' 프로젝트가 없습니다. test02RegisterProject() 를 먼저 실행하세요.");
+        int projectId = resolveTargetProject();
+        if (projectId == 0) {
             return;
         }
-        int projectId = target.getProjectId();
-        System.out.println("대상 프로젝트: [" + projectId + "] " + target.getProjectName());
+        Project project = makerProjectService.findProject(projectId);
+        if (project == null) {
+            ResultView.fail("프로젝트 " + projectId + "번이 없습니다. TEST03_TARGET_PROJECT_ID 를 확인하세요.");
+            return;
+        }
+        ResultView.project("신청 전", project);
 
-        if (target.getRewardCount() == 0) {
-            System.out.println("\n(1) 리워드 없이 신청 시도 — 실패해야 함");
-            ResultView.printResponse(ctx.maker().submitProject(maker, projectId));
+        // ① 리워드가 하나도 없을 때 신청하면 막혀야 한다 ("리워드 등록 후 프로젝트 신청")
+        if (makerProjectService.findRewards(projectId).isEmpty()) {
+            ResultView.section("① 리워드 없이 승인 신청 → 실패해야 정상");
+            TestSupport.attempt("승인 신청", () -> makerProjectService.submitProject(MAKER_ID, projectId));
         }
 
-        System.out.println("\n(2) 리워드 등록");
-        LocalDateTime delivery = target.getEndDate().plusDays(14).atStartOfDay();   // 펀딩 종료 2주 뒤 제공
-        ResultView.printResponse(ctx.maker().addReward(maker, new Reward(projectId,
-                "[얼리버드] 캠핑 랜턴 1개", "정가 대비 20% 할인 (한정 5개)", 29_000, 5, delivery)));
-        ResultView.printResponse(ctx.maker().addReward(maker, new Reward(projectId,
-                "캠핑 랜턴 2개 세트", "랜턴 2개 + 전용 파우치", 55_000, null, delivery)));   // null = 무제한
+        // ② 리워드 2개 등록 (1개는 수량 제한, 1개는 무제한). 제공 시기는 펀딩 종료 2주 뒤
+        ResultView.section("② 리워드 등록");
+        LocalDateTime delivery = project.getEndDate().plusDays(14).atStartOfDay();
+        Reward limited = Reward.of("얼리버드 가습기", "가습기 1개 (얼리버드 할인)", 19_000, 10, delivery);
+        Reward unlimited = Reward.of("가습기 기본", "가습기 1개", 25_000, null, delivery);
+        TestSupport.attempt("리워드 등록: 얼리버드 가습기 (한정 10개)",
+                () -> makerProjectService.addReward(MAKER_ID, projectId, limited));
+        TestSupport.attempt("리워드 등록: 가습기 기본 (수량 무제한)",
+                () -> makerProjectService.addReward(MAKER_ID, projectId, unlimited));
+        for (Reward r : makerProjectService.findRewards(projectId)) {
+            ResultView.reward("등록된 리워드", r);
+        }
 
-        System.out.println("\n(3) 승인 신청");
-        ResultView.printResponse(ctx.maker().submitProject(maker, projectId));
+        // ③ 리워드 등록이 끝났으니 관리자에게 승인 신청
+        ResultView.section("③ 프로젝트 승인 신청");
+        TestSupport.attempt("승인 신청 (작성 중 → 승인 대기)",
+                () -> makerProjectService.submitProject(MAKER_ID, projectId));
+        ResultView.project("신청 후", makerProjectService.findProject(projectId));
 
-        ResultView.section("내 프로젝트 목록");
-        ResultView.printManagedProjectList(ctx.maker().getMyProjects(maker).getData());
-        checkSql("SELECT * FROM reward WHERE project_id = " + projectId + ";",
-                "SELECT project_id, project_name, approval_status FROM project WHERE project_id = " + projectId + ";");
+        ResultView.checkSql(
+                "SELECT * FROM reward WHERE project_id = " + projectId + ";",
+                "SELECT project_id, project_name, approval_status, project_status FROM project WHERE project_id = "
+                        + projectId + ";");
+    }
+
+    /** test03 대상 프로젝트 번호 정하기 */
+    private int resolveTargetProject() {
+        if (TEST03_TARGET_PROJECT_ID != 0) {
+            return TEST03_TARGET_PROJECT_ID;
+        }
+        Integer latest = makerProjectService.findLatestProjectId(MAKER_ID, ApprovalStatus.DRAFT);
+        if (latest == null) {
+            ResultView.fail("작성 중인 프로젝트가 없습니다. test02 를 먼저 실행하거나 TEST03_TARGET_PROJECT_ID 에 번호를 넣으세요.");
+            return 0;
+        }
+        ResultView.info("대상: 프로젝트 " + latest + "번 (가장 최근 '작성 중' 프로젝트 자동 선택)");
+        return latest;
     }
 }

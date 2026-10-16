@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- category 테이블 -->
 <mapper namespace="crowdfunding.model.dao.CategoryMapper">
 
+    <select id="exists" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM category WHERE category_id = #{categoryId})
+    </select>
+
     <select id="findAll" resultType="Category">
-        SELECT category_id, category_name FROM category ORDER BY category_id
+        SELECT category_id, category_name
+          FROM category
+         ORDER BY category_id
     </select>
 
-    <select id="findById" resultType="Category">
-        SELECT category_id, category_name FROM category WHERE category_id = #{categoryId}
-    </select>
-
-    <insert id="insertCategory" parameterType="Category" useGeneratedKeys="true" keyProperty="categoryId">
-        INSERT INTO category (category_name) VALUES (#{categoryName})
-    </insert>
 </mapper>

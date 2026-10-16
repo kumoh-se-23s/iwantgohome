@@ -1,35 +1,39 @@
 package crowdfunding.model.enums;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
 /**
- * 프로젝트 승인 상태 — project.approval_status ENUM('draft','waiting','approved','reject')
+ * project.approval_status 컬럼 값 ENUM('draft','waiting','approved','reject')
  *
- * <pre>
- *  DRAFT(작성 중) ──신청──▶ WAITING(승인 대기) ──승인──▶ APPROVED(승인 완료, 서포터에게 공개)
- *        ▲                         │
- *        │                       거절(사유 작성)
- *        │                         ▼
- *        └────── 수정 후 재신청 ── REJECT(거절)
- * </pre>
+ * 흐름: draft(작성 중) → [리워드 등록 후 신청] → waiting(승인 대기)
+ *       → [관리자 승인] → approved   /   [관리자 거절] → reject → [수정 후 재신청] → waiting
+ *
+ * ※ 거절 값은 'rejected' 가 아니라 'reject' 다 (crowdfunding.sql 기준)
+ *
+ * [담당] 공통 기반
  */
-public enum ApprovalStatus implements CodeEnum {
+@Getter                    // getValue(), getLabel()
+@RequiredArgsConstructor   // (value, label) 생성자
+public enum ApprovalStatus {
     DRAFT("draft", "작성 중"),
     WAITING("waiting", "승인 대기"),
-    APPROVED("approved", "승인 완료"),
-    REJECT("reject", "승인 거절");
+    APPROVED("approved", "승인"),
+    REJECT("reject", "거절");
 
-    private final String code;
-    private final String label;
+    private final String value;   // DB 에 저장되는 값
+    private final String label;   // 화면에 보여 줄 한글 이름
 
-    ApprovalStatus(String code, String label) {
-        this.code = code;
-        this.label = label;
+    public boolean matches(String dbValue) {
+        return value.equals(dbValue);
     }
 
-    @Override public String getCode() { return code; }
-    @Override public String getLabel() { return label; }
-
-    /** 메이커가 내용을 수정하거나 리워드를 추가할 수 있는 상태인가? (작성 중 또는 거절됨) */
-    public boolean isEditable() {
-        return this == DRAFT || this == REJECT;
+    public static String labelOf(String dbValue) {
+        for (ApprovalStatus s : values()) {
+            if (s.matches(dbValue)) {
+                return s.label;
+            }
+        }
+        return String.valueOf(dbValue);
     }
 }

@@ -1,0 +1,38 @@
+plugins {
+    id 'java'
+    id 'application'   // gradlew run 으로 Main 실행 (IntelliJ 에서 Main 초록 버튼으로 실행해도 됨)
+}
+
+group = 'org.example'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    implementation 'com.mysql:mysql-connector-j:8.4.0'
+    compileOnly 'org.projectlombok:lombok:1.18.36'
+    annotationProcessor 'org.projectlombok:lombok:1.18.36'
+    implementation("org.apache.commons:commons-dbcp2:2.13.0")
+    implementation 'org.mybatis:mybatis:3.5.19'
+}
+
+application {
+    mainClass = 'crowdfunding.Main'
+}
+
+// 한글 주석·문자열이 있으므로 컴파일과 실행 모두 UTF-8 로 맞춘다 (윈도우에서 한글 깨짐 방지)
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+tasks.withType(JavaExec).configureEach {
+    defaultCharacterEncoding = 'UTF-8'
+    jvmArgs '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8'
+}
+
+test {
+    useJUnitPlatform()
+}

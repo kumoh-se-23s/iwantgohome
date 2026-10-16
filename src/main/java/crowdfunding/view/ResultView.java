@@ -1,205 +1,205 @@
 package crowdfunding.view;
 
-import crowdfunding.config.AppConfig;
-import crowdfunding.model.domain.Category;
+import crowdfunding.model.domain.Funding;
+import crowdfunding.model.domain.Project;
+import crowdfunding.model.domain.Reward;
+import crowdfunding.model.domain.Supporter;
+import crowdfunding.model.domain.User;
+import crowdfunding.model.dto.FunderInfo;
 import crowdfunding.model.dto.FundingStatus;
-import crowdfunding.model.dto.FundingSupporter;
-import crowdfunding.model.dto.ProjectDetail;
 import crowdfunding.model.dto.ProjectSummary;
-import crowdfunding.model.dto.RewardFundingStatus;
-import crowdfunding.model.dto.RewardView;
+import crowdfunding.model.dto.RewardStatus;
 import crowdfunding.model.dto.ReviewView;
-import crowdfunding.model.dto.SupporterProfile;
 import crowdfunding.model.enums.ApprovalStatus;
-import crowdfunding.protocol.Response;
+import crowdfunding.model.enums.ProjectStatus;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
- * 결과 출력 전용 View (콘솔).
- * 1차 검사 코드와 2차 클라이언트 메뉴가 <b>같은 출력 메소드</b>를 사용한다.
- * 데이터가 컨트롤러에서 바로 왔든(1차) 소켓으로 왔든(2차) 같은 DTO 이므로 출력 코드는 바뀌지 않는다.
+ * 콘솔 출력 담당 (MVC 의 View).
+ * 데이터를 받아서 보여 주기만 하고, 계산이나 판단은 하지 않는다.
+ * 1차 검사와 12월 클라이언트 화면에서 같이 쓸 수 있다.
+ *
+ * [담당] D (공통 출력)
  */
 public final class ResultView {
 
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final String LINE = "=".repeat(78);
 
     private ResultView() {
     }
 
-    // ------------------------------------------------------------ 공통
+    // ------------------------------------------------------------------ 공통
 
-    public static void title(String title) {
+    public static void title(String text) {
         System.out.println();
-        System.out.println("==================== " + title + " ====================");
+        System.out.println(LINE);
+        System.out.println(" " + text);
+        System.out.println(LINE);
     }
 
     public static void section(String text) {
         System.out.println();
-        System.out.println("--- " + text + " ---");
+        System.out.println("▶ " + text);
     }
 
-    public static void printResponse(Response<?> response) {
-        System.out.println(response);
+    public static void info(String text) {
+        System.out.println("   " + text);
+    }
+
+    public static void success(String text) {
+        System.out.println("   [성공] " + text);
+    }
+
+    public static void fail(String text) {
+        System.out.println("   [실패] " + text);
+    }
+
+    /** Workbench 에서 그대로 붙여 넣어 확인할 SQL */
+    public static void checkSql(String... sqls) {
+        System.out.println();
+        System.out.println("   ※ Workbench 확인 SQL");
+        for (String sql : sqls) {
+            System.out.println("     " + sql);
+        }
     }
 
     public static String won(long amount) {
         return String.format("%,d원", amount);
     }
 
-    private static String percent(double rate) {
-        return String.format("%.1f%%", rate);
-    }
-
     private static String dateTime(LocalDateTime t) {
         return t == null ? "-" : t.format(DATE_TIME);
     }
 
-    private static String quantity(RewardView r) {
-        if (!r.isLimited()) {
-            return "무제한 (신청 " + r.getAppliedCount() + "개)";
-        }
-        return "제공 " + r.getRewardAmount() + "개 중 " + r.getAppliedCount() + "개 신청 → 잔여 "
-                + r.getRemaining() + "개" + (r.isSoldOut() ? " [매진]" : "");
-    }
+    // ------------------------------------------------------------------ 검사 1 · 8: 펀딩 현황
 
-    private static String dDay(ProjectSummary p) {
-        if (!p.isFundingOpen()) {
-            return "";
-        }
-        long days = ChronoUnit.DAYS.between(AppConfig.today(), p.getEndDate());
-        return days == 0 ? " (D-Day)" : " (D-" + days + ")";
-    }
-
-    public static void printCategories(List<Category> categories) {
-        StringBuilder sb = new StringBuilder("  카테고리: ");
-        for (Category c : categories) {
-            sb.append(c.getCategoryId()).append(". ").append(c.getCategoryName()).append("   ");
-        }
-        System.out.println(sb.toString().trim());
-    }
-
-    // ------------------------------------------------------------ 프로젝트 목록
-
-    /** 서포터/공통 프로젝트 목록 */
-    public static void printProjectList(List<ProjectSummary> list) {
-        if (list == null || list.isEmpty()) {
-            System.out.println("  (조회된 프로젝트가 없습니다)");
+    public static void fundingStatus(List<FundingStatus> list) {
+        if (list.isEmpty()) {
+            info("승인된 프로젝트가 없습니다.");
             return;
         }
+        for (FundingStatus fs : list) {
+            fundingStatus(fs);
+        }
+    }
+
+    public static void fundingStatus(FundingStatus fs) {
+        System.out.println();
+        System.out.printf("   [프로젝트 %d] %s  | %s | %s ~ %s%n", fs.getProjectId(), fs.getProjectName(),
+                ProjectStatus.labelOf(fs.getProjectStatus()), fs.getStartDate(), fs.getEndDate());
+        System.out.printf("     총 펀딩 금액 %s / 목표 %s (달성률 %.1f%%)  |  후원 서포터 %d명%n",
+                won(fs.getTotalAmount()), won(fs.getTargetAmount()), fs.getAchieveRate(), fs.getSupporterCount());
+
+        for (RewardStatus r : fs.getRewards()) {
+            String remain = r.getRewardAmount() == null
+                    ? "잔여 무제한"
+                    : "잔여 " + r.getRemaining() + "개 (총 " + r.getRewardAmount() + "개)";
+            System.out.printf("     - 리워드 %d [%s] %s  |  신청 %d개 / %s%n",
+                    r.getRewardId(), r.getRewardName(), won(r.getRewardPrice()), r.getAppliedCount(), remain);
+            if (r.getFunders().isEmpty()) {
+                System.out.println("         (아직 신청한 서포터 없음)");
+            }
+            for (FunderInfo f : r.getFunders()) {
+                System.out.printf("         · %s (user %d)  %s  배송지: %s  [신청 %s]%n",
+                        f.getUserName(), f.getUserId(), f.getPhoneNumber(), f.getDeliveryAddress(),
+                        dateTime(f.getFundedDate()));
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ 검사 6 · 7: 프로젝트 목록
+
+    public static void projects(List<ProjectSummary> list) {
+        if (list.isEmpty()) {
+            info("조건에 맞는 프로젝트가 없습니다.");
+            return;
+        }
+        System.out.println("   " + pad("번호", 4) + pad("상태", 10) + pad("카테고리", 11) + pad("프로젝트명", 26)
+                + pad("모인 금액 / 목표 (달성률)", 34) + pad("마감일", 12) + pad("후원", 6) + "좋아요");
+        System.out.println("   " + "-".repeat(110));
         for (ProjectSummary p : list) {
-            System.out.printf("  [%d] %s | %s | 메이커 %s%n",
-                    p.getProjectId(), p.getProjectName(), p.getCategoryName(), p.getMakerName());
-            System.out.printf("       %s%s | %s ~ %s | 목표 %s | 모인 금액 %s (%s) | 후원자 %d명 | 좋아요 %d%n",
-                    p.getStateLabel(), dDay(p), p.getStartDate().format(DATE), p.getEndDate().format(DATE),
-                    won(p.getTargetAmount()), won(p.getTotalAmount()), percent(p.getAchievementRate()),
-                    p.getSupporterCount(), p.getLikeCount());
+            String money = won(p.getTotalAmount()) + " / " + won(p.getTargetAmount())
+                    + String.format(" (%.1f%%)", p.getAchieveRate());
+            System.out.println("   " + pad(String.valueOf(p.getProjectId()), 4) + pad(p.getSupporterState(), 10)
+                    + pad(p.getCategoryName(), 11) + pad(p.getProjectName(), 26) + pad(money, 34)
+                    + pad(String.valueOf(p.getEndDate()), 12) + pad(p.getSupporterCount() + "명", 6)
+                    + p.getLikeCount());
         }
+        info("총 " + list.size() + "개");
     }
 
-    /** 메이커의 내 프로젝트 / 관리자의 승인 대기 목록 — 승인 상태와 거절 사유를 함께 보여준다 */
-    public static void printManagedProjectList(List<ProjectSummary> list) {
-        if (list == null || list.isEmpty()) {
-            System.out.println("  (프로젝트가 없습니다)");
+    // ------------------------------------------------------------------ 단건 출력
+
+    public static void project(String label, Project p) {
+        if (p == null) {
+            info(label + ": (없음)");
             return;
         }
-        for (ProjectSummary p : list) {
-            System.out.printf("  [%d] %s | %s | 메이커 %s | 등록 %s%n",
-                    p.getProjectId(), p.getProjectName(), p.getCategoryName(), p.getMakerName(), dateTime(p.getCreatedAt()));
-            System.out.printf("       승인 상태: %s | 진행 상태: %s | 리워드 %d개 | %s ~ %s | 목표 %s | 모인 금액 %s (%s)%n",
-                    p.getApprovalStatus().getLabel(),
-                    p.getApprovalStatus() == ApprovalStatus.APPROVED ? p.getStateLabel() + dDay(p) : "-",
-                    p.getRewardCount(), p.getStartDate().format(DATE), p.getEndDate().format(DATE),
-                    won(p.getTargetAmount()), won(p.getTotalAmount()), percent(p.getAchievementRate()));
-            if (p.getApprovalStatus() == ApprovalStatus.REJECT && p.getRejectReason() != null) {
-                System.out.println("       거절 사유: " + p.getRejectReason());
-            }
-        }
+        info(String.format("%s: 프로젝트 %d [%s]  승인 상태=%s(%s)  진행 상태=%s  기간 %s ~ %s  목표 %s",
+                label, p.getProjectId(), p.getProjectName(),
+                ApprovalStatus.labelOf(p.getApprovalStatus()), p.getApprovalStatus(),
+                p.getProjectStatus() == null ? "NULL" : ProjectStatus.labelOf(p.getProjectStatus()),
+                p.getStartDate(), p.getEndDate(), won(p.getTargetAmount())));
     }
 
-    // ------------------------------------------------------------ 상세 / 현황
-
-    public static void printProjectDetail(ProjectDetail d) {
-        ProjectSummary p = d.getSummary();
-        title("[" + p.getProjectId() + "] " + p.getProjectName());
-        System.out.printf("  카테고리: %s | 메이커: %s | 상태: %s%s%n",
-                p.getCategoryName(), p.getMakerName(), p.getStateLabel(), dDay(p));
-        System.out.printf("  펀딩 기간: %s ~ %s%n", p.getStartDate().format(DATE), p.getEndDate().format(DATE));
-        System.out.printf("  목표 금액: %s | 모인 금액: %s (달성률 %s) | 후원자 %d명 | 좋아요 %d%n",
-                won(p.getTargetAmount()), won(p.getTotalAmount()), percent(p.getAchievementRate()),
-                p.getSupporterCount(), p.getLikeCount());
-        System.out.println("  설명: " + (d.getProjectDescription() == null ? "-" : d.getProjectDescription()));
-
-        section("리워드");
-        if (d.getRewards() == null || d.getRewards().isEmpty()) {
-            System.out.println("  (등록된 리워드가 없습니다)");
-        } else {
-            for (RewardView r : d.getRewards()) {
-                boolean mine = d.getMyRewardId() != null && d.getMyRewardId() == r.getRewardId();
-                System.out.printf("  [%d] %s - %s%s%n", r.getRewardId(), r.getRewardName(), won(r.getRewardPrice()),
-                        mine ? "   ← 내가 신청한 리워드" : "");
-                System.out.println("       제공 내용: " + (r.getRewardDescription() == null ? "-" : r.getRewardDescription()));
-                System.out.println("       제공 시기: " + (r.getRewardDeliveryDate() == null ? "-" : r.getRewardDeliveryDate().format(DATE))
-                        + " | 수량: " + quantity(r)
-                        + (r.getImageSize() == null ? "" : " | 이미지 " + r.getRewardImageType() + " " + (r.getImageSize() / 1024) + "KB"));
-            }
-        }
-        if (d.getMyRewardId() != null || d.isLikedByMe()) {
-            System.out.println("  * 나의 상태: " + (d.getMyRewardId() != null ? "후원함" : "후원 안 함")
-                    + " / " + (d.isLikedByMe() ? "좋아요 누름" : "좋아요 안 누름"));
-        }
-    }
-
-    /** 메이커의 프로젝트별 펀딩 현황 (총 펀딩 금액, 리워드별 신청/잔여 수량, 서포터 및 배송지) */
-    public static void printFundingStatus(FundingStatus status) {
-        ProjectSummary p = status.getProject();
-        title("[" + p.getProjectId() + "] " + p.getProjectName() + " - 펀딩 현황");
-        System.out.printf("  상태: %s%s | 기간: %s ~ %s%n", p.getStateLabel(), dDay(p),
-                p.getStartDate().format(DATE), p.getEndDate().format(DATE));
-        System.out.printf("  총 펀딩 금액: %s / 목표 %s (달성률 %s) | 후원자 %d명%n",
-                won(p.getTotalAmount()), won(p.getTargetAmount()), percent(p.getAchievementRate()), p.getSupporterCount());
-
-        for (RewardFundingStatus r : status.getRewards()) {
-            System.out.printf("%n  리워드 [%d] %s (%s)%n", r.getRewardId(), r.getRewardName(), won(r.getRewardPrice()));
-            System.out.println("     수량: " + quantity(r) + " | 리워드 합계 " + won((long) r.getRewardPrice() * r.getAppliedCount()));
-            if (r.getSupporters().isEmpty()) {
-                System.out.println("     (신청한 서포터 없음)");
-            }
-            for (FundingSupporter s : r.getSupporters()) {
-                System.out.printf("     - %s | %s | 배송지: %s | 신청일 %s%n",
-                        s.getUserName(), s.getPhoneNumber(), s.getDeliveryAddress(), dateTime(s.getFundedDate()));
-            }
-        }
-    }
-
-    // ------------------------------------------------------------ 리뷰 / 계정
-
-    /** 리워드명 / 별점 / 리뷰 */
-    public static void printReviews(List<ReviewView> reviews) {
-        if (reviews == null || reviews.isEmpty()) {
-            System.out.println("  (작성된 리뷰가 없습니다)");
+    public static void reward(String label, Reward r) {
+        if (r == null) {
+            info(label + ": (없음)");
             return;
         }
-        for (ReviewView r : reviews) {
-            System.out.printf("  [%s] %s (%d점) | %s | %s%n", r.getRewardName(), stars(r.getRating()), r.getRating(),
-                    r.getUserName(), dateTime(r.getReviewAt()));
-            System.out.println("       " + (r.getReviewContent() == null ? "(내용 없음)" : r.getReviewContent()));
+        String amount = r.isLimited()
+                ? "신청 " + r.getAppliedCount() + "개 / 수량 " + r.getRewardAmount() + "개 → 잔여 " + r.getRemaining() + "개"
+                : "신청 " + r.getAppliedCount() + "개 / 수량 무제한";
+        info(String.format("%s: 리워드 %d [%s] %s  |  %s", label, r.getRewardId(), r.getRewardName(),
+                won(r.getRewardPrice()), amount));
+    }
+
+    public static void funding(String label, Funding f) {
+        if (f == null) {
+            info(label + ": 후원 기록 없음");
+            return;
         }
+        info(String.format("%s: 서포터 %d → 프로젝트 %d, 리워드 %d, 신청일 %s",
+                label, f.getUserId(), f.getProjectId(), f.getRewardId(), dateTime(f.getFundedDate())));
     }
 
-    private static String stars(int rating) {
-        return "★".repeat(rating) + "☆".repeat(5 - rating);
+    public static void profile(String label, User u, Supporter s) {
+        info(String.format("%s: [user %d] 이름=%s, 연락처=%s, 비밀번호=%s, 배송지=%s, 생년월일=%s",
+                label, u.getUserId(), u.getUserName(), u.getPhoneNumber(), u.getPw(),
+                s == null ? "-" : s.getDeliveryAddress(),
+                s == null || s.getBirthDate() == null ? "-" : s.getBirthDate()));
     }
 
-    public static void printProfile(SupporterProfile p) {
-        System.out.println("  아이디  : " + p.getLoginId());
-        System.out.println("  이름    : " + p.getUserName());
-        System.out.println("  연락처  : " + p.getPhoneNumber());
-        System.out.println("  배송지  : " + p.getDeliveryAddress());
-        System.out.println("  생년월일: " + (p.getBirthDate() == null ? "-" : p.getBirthDate().format(DATE)));
+    public static void review(ReviewView v) {
+        if (v == null) {
+            info("리뷰 없음");
+            return;
+        }
+        info("프로젝트 : " + v.getProjectName());
+        info("작성자   : " + v.getUserName() + "  (" + dateTime(v.getReviewAt()) + ")");
+        info("리워드명 : " + v.getRewardName());
+        info("별점     : " + v.getStars() + " (" + v.getRating() + "점)");
+        info("리뷰     : " + (v.getReviewContent() == null ? "(내용 없음)" : v.getReviewContent()));
+    }
+
+    // ------------------------------------------------------------------ 한글 정렬
+
+    /**
+     * 콘솔에서 한글은 영문보다 두 칸을 차지해서 String.format("%-10s") 로는 줄이 안 맞는다.
+     * 화면에 보이는 폭을 직접 세서 공백을 채운다.
+     */
+    private static String pad(String s, int width) {
+        String text = s == null ? "-" : s;
+        int w = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            w += (c >= 0x1100 && c <= 0x11FF) || (c >= 0x3130 && c <= 0x318F)
+                    || (c >= 0xAC00 && c <= 0xD7A3) || (c >= 0xFF00 && c <= 0xFFEF) ? 2 : 1;
+        }
+        return w >= width ? text + " " : text + " ".repeat(width - w);
     }
 }

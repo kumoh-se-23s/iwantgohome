@@ -1,46 +1,55 @@
 package crowdfunding.dbtest;
 
-import crowdfunding.model.dto.LoginUser;
-import crowdfunding.model.dto.ProjectSummary;
-import crowdfunding.protocol.Response;
+import crowdfunding.model.service.AdminService;
 import crowdfunding.view.ResultView;
+import lombok.RequiredArgsConstructor;
 
-import java.util.Comparator;
-import java.util.List;
+/**
+ * 관리자 검사 항목
+ *   [검사 4] test04ApproveProject : 메이커의 프로젝트 등록 신청 승인
+ *
+ * [담당] A (검사 04)
+ */
+@RequiredArgsConstructor
+public class AdminTest {
 
-/** 1차 검사 — 관리자 (검사 4) */
-public class AdminTest extends DbTestSupport {
+    // ============================================================================
+    //  검사 때 바꿔도 되는 값 (번호는 initDB 기준)
+    // ============================================================================
+    /** 관리자 계정: 1 = admin01 */
+    private static final int ADMIN_ID = 1;
 
-    // ===== 검사 시 수정 가능한 값 =====
-    /** 승인할 프로젝트 번호 (null = 승인 대기 중 번호가 가장 큰 프로젝트 = 검사 3에서 신청한 것) */
-    private static final Integer TEST04_PROJECT_ID = null;
+    /**
+     * 승인할 프로젝트. 0 이면 가장 최근에 승인 신청된 프로젝트(= test03 에서 신청한 것)를 자동 선택.
+     * initDB 직후라면 6번(비건 단백질 쿠키)이 승인 대기 상태다.
+     */
+    private static final int TEST04_TARGET_PROJECT_ID = 0;
+    // ============================================================================
 
-    /** 검사 4. 메이커의 프로젝트 등록 신청 승인 → approved + in_progress (서포터에게 공개) */
+    // 사용할 Service 들 - Main 에서 만들어서 생성자로 넣어 준다 (@RequiredArgsConstructor)
+    private final AdminService adminService;
+
+    /** [검사 4] 승인 → approval_status = 'approved', project_status = 'in_progress' (서포터에게 공개) */
     public void test04ApproveProject() {
-        header("04", "ADMIN", "프로젝트 등록 승인");
-        LoginUser admin = login(DataInitializer.ADMIN_ID, DataInitializer.ADMIN_PW);
+        ResultView.title("[검사 4] ADMIN - 메이커의 프로젝트 등록 신청 승인 (관리자 user " + ADMIN_ID + ")");
 
-        Response<List<ProjectSummary>> waiting = ctx.admin().getWaitingProjects(admin);
-        ResultView.section("승인 대기 목록");
-        ResultView.printManagedProjectList(waiting.getData());
-
-        Integer projectId = TEST04_PROJECT_ID;
-        if (projectId == null) {
-            projectId = waiting.getData().stream()
-                    .map(ProjectSummary::getProjectId)
-                    .max(Comparator.naturalOrder())
-                    .orElse(null);
-        }
-        if (projectId == null) {
-            System.out.println("승인 대기 중인 프로젝트가 없습니다.");
-            return;
+        int projectId = TEST04_TARGET_PROJECT_ID;
+        if (projectId == 0) {
+            Integer latest = adminService.findLatestWaitingProjectId();
+            if (latest == null) {
+                ResultView.fail("승인 대기 중인 프로젝트가 없습니다. TEST04_TARGET_PROJECT_ID 에 번호를 넣으세요.");
+                return;
+            }
+            projectId = latest;
+            ResultView.info("대상: 프로젝트 " + projectId + "번 (가장 최근 승인 신청 프로젝트 자동 선택)");
         }
 
-        System.out.println();
-        ResultView.printResponse(ctx.admin().approveProject(admin, projectId));
+        final int target = projectId;
+        ResultView.project("승인 전", adminService.findProject(target));
+        TestSupport.attempt("프로젝트 " + target + "번 승인", () -> adminService.approveProject(ADMIN_ID, target));
+        ResultView.project("승인 후", adminService.findProject(target));
 
-        ResultView.section("승인 후 승인 대기 목록");
-        ResultView.printManagedProjectList(ctx.admin().getWaitingProjects(admin).getData());
-        checkSql("SELECT project_id, project_name, approval_status, project_status FROM project WHERE project_id = " + projectId + ";");
+        ResultView.checkSql("SELECT project_id, project_name, approval_status, project_status FROM project "
+                + "WHERE project_id = " + target + ";");
     }
 }
