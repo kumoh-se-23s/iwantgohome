@@ -15,13 +15,13 @@ import java.time.LocalDateTime;
 
 /**
  * 메이커 검사 항목
- *   [검사 1] test01ViewFundingStatus : 프로젝트별 펀딩 현황 보기
- *   [검사 2] test02RegisterProject   : 프로젝트 기본 정보 등록
- *   [검사 3] test03RegisterReward    : 리워드 등록 후 프로젝트 신청
- *
+ * [검사 1] test01ViewFundingStatus : 프로젝트별 펀딩 현황 보기
+ * [검사 2] test02RegisterProject   : 프로젝트 기본 정보 등록
+ * [검사 3] test03RegisterReward    : 리워드 등록 후 프로젝트 신청
+ * <p>
  * 테스트는 Mapper 를 직접 부르지 않고 Service 를 호출한다.
  * → 12월 최종 시스템에서도 같은 Service 를 그대로 쓴다.
- *
+ * <p>
  * [담당] D (검사 01), A (검사 02·03)
  */
 @RequiredArgsConstructor
@@ -30,17 +30,23 @@ public class MakerTest {
     // ============================================================================
     //  검사 때 바꿔도 되는 값 (번호는 initDB 기준)
     // ============================================================================
-    /** 검사하는 메이커: 2 = maker01 (김민수, 프로젝트 1·2·3·7) / 3 = maker02 (이수진) */
+    /**
+     * 검사하는 메이커: 2 = maker01 (김민수, 프로젝트 1·2·3·7) / 3 = maker02 (이수진)
+     */
     private static final int MAKER_ID = 2;
 
-    /** [검사 2] 등록할 프로젝트 */
+    /**
+     * [검사 2] 등록할 프로젝트
+     */
     private static final String TEST02_NAME = "[검사] 휴대용 미니 가습기";
     private static final String TEST02_DESCRIPTION = "USB-C 충전식 300ml 미니 가습기, 무드등 겸용";
     private static final int TEST02_CATEGORY_ID = 1;           // 1 테크·가전, 2 푸드
     private static final int TEST02_TARGET_AMOUNT = 1_000_000;
     private static final int TEST02_PERIOD_DAYS = 30;          // 오늘부터 30일 동안 펀딩
 
-    /** [검사 3] 리워드를 등록할 프로젝트. 0 이면 MAKER_ID 의 가장 최근 '작성 중' 프로젝트(= test02 결과)를 자동 선택 */
+    /**
+     * [검사 3] 리워드를 등록할 프로젝트. 0 이면 MAKER_ID 의 가장 최근 '작성 중' 프로젝트(= test02 결과)를 자동 선택
+     */
     private static final int TEST03_TARGET_PROJECT_ID = 0;
     // ============================================================================
 
@@ -48,7 +54,9 @@ public class MakerTest {
     private final FundingStatusService fundingStatusService;
     private final MakerProjectService makerProjectService;
 
-    /** [검사 1] 프로젝트별 펀딩 현황 보기 (총 펀딩 금액, 리워드별 신청 수량/잔여 수량, 서포터 및 배송지) */
+    /**
+     * [검사 1] 프로젝트별 펀딩 현황 보기 (총 펀딩 금액, 리워드별 신청 수량/잔여 수량, 서포터 및 배송지)
+     */
     public void test01ViewFundingStatus() {
         ResultView.title("[검사 1] MAKER - 프로젝트별 펀딩 현황 보기 (메이커 user " + MAKER_ID + ")");
         try {
@@ -69,7 +77,9 @@ public class MakerTest {
                         + "ORDER BY r.project_id, r.reward_id;");
     }
 
-    /** [검사 2] 프로젝트 기본 정보 등록 → approval_status = 'draft' (작성 중) */
+    /**
+     * [검사 2] 프로젝트 기본 정보 등록 → approval_status = 'draft' (작성 중)
+     */
     public void test02RegisterProject() {
         ResultView.title("[검사 2] MAKER - 프로젝트 기본 정보 등록 (메이커 user " + MAKER_ID + ")");
 
@@ -92,7 +102,9 @@ public class MakerTest {
         ResultView.checkSql("SELECT * FROM project ORDER BY project_id DESC LIMIT 1;");
     }
 
-    /** [검사 3] 리워드 등록 후 프로젝트 신청 → reward 행 추가, approval_status = 'waiting' (승인 대기) */
+    /**
+     * [검사 3] 리워드 등록 후 프로젝트 신청 → reward 행 추가, approval_status = 'waiting' (승인 대기)
+     */
     public void test03RegisterReward() {
         ResultView.title("[검사 3] MAKER - 리워드 등록 및 프로젝트 신청 (메이커 user " + MAKER_ID + ")");
 
@@ -107,13 +119,13 @@ public class MakerTest {
         }
         ResultView.project("신청 전", project);
 
-        // ① 리워드가 하나도 없을 때 신청하면 막혀야 한다 ("리워드 등록 후 프로젝트 신청")
+        // 리워드가 1개도 없을 시 실패 처리
         if (makerProjectService.findRewards(projectId).isEmpty()) {
-            ResultView.section("① 리워드 없이 승인 신청 → 실패해야 정상");
+            ResultView.section("리워드 없이 승인 신청 → 실패");
             TestSupport.attempt("승인 신청", () -> makerProjectService.submitProject(MAKER_ID, projectId));
         }
 
-        // ② 리워드 2개 등록 (1개는 수량 제한, 1개는 무제한). 제공 시기는 펀딩 종료 2주 뒤
+        // 리워드 2개 등록 (1개는 수량 제한, 1개는 무제한), 제공시기는 마감 2주전
         ResultView.section("② 리워드 등록");
         LocalDateTime delivery = project.getEndDate().plusDays(14).atStartOfDay();
         Reward limited = Reward.of("얼리버드 가습기", "가습기 1개 (얼리버드 할인)", 19_000, 10, delivery);
@@ -138,7 +150,9 @@ public class MakerTest {
                         + projectId + ";");
     }
 
-    /** test03 대상 프로젝트 번호 정하기 */
+    /**
+     * test03 대상 프로젝트 번호 정하기
+     */
     private int resolveTargetProject() {
         if (TEST03_TARGET_PROJECT_ID != 0) {
             return TEST03_TARGET_PROJECT_ID;

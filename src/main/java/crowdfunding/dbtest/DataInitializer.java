@@ -37,14 +37,12 @@ public final class DataInitializer {
 
     public static void initDB() {
         LocalDate today = AppConfig.today();
-        ResultView.title("initDB - 검사용 사전 데이터 입력 (기준일 " + today + ")");
 
         InputStream in = DataInitializer.class.getClassLoader().getResourceAsStream(SEED_SQL);
         if (in == null) {
             throw new IllegalStateException("src/main/resources/" + SEED_SQL + " 파일이 없습니다.");
         }
 
-        // 한글이 들어 있으므로 반드시 UTF-8 로 읽는다 (윈도우 기본 인코딩으로 읽으면 깨짐)
         try (Connection conn = PooledDataSource.getDataSource().getConnection();
              Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
 
@@ -61,7 +59,7 @@ public final class DataInitializer {
             runner.runScript(reader);      // 스크립트 마지막에 commit 된다
 
             printSummary(conn);
-            ResultView.success("사전 데이터 입력 완료. 이제 initDB() 를 주석 처리하고 test01 부터 하나씩 실행하세요.");
+            ResultView.success("사전 데이터 입력 완료.");
 
         } catch (IOException | SQLException e) {
             throw new RuntimeException("initDB 실패: " + e.getMessage(), e);

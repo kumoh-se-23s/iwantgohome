@@ -20,11 +20,11 @@ import javax.sql.DataSource;
 
 /**
  * 11/2 DB 파트 검사 실행 클래스
- *
+ * <p>
  * 검사 순서 (과제 안내 방식 그대로)
- *   initDB 주석 해제 → 실행 → initDB 주석
- *   → test01 주석 해제 → 실행 → test01 주석 → test02 주석 해제 → 실행 → ... → test10
- *
+ * initDB 주석 해제 → 실행 → initDB 주석
+ * → test01 주석 해제 → 실행 → test01 주석 → test02 주석 해제 → 실행 → ... → test10
+ * <p>
  * 각 테스트는 실행 뒤 Workbench 에서 돌려 볼 "확인 SQL" 을 콘솔에 같이 출력한다.
  * 검사 때 대상 PK·필터 조건을 바꿔야 하면 각 테스트 클래스 맨 위의 상수만 고치면 된다.
  */
@@ -57,24 +57,24 @@ public class Main {
             runByArgs(args, makerTest, adminTest, supporterTest);
             return;
         }
-
-        // DataInitializer.initDB();                       // 검사에 필요한 사전 데이터를 insert하는 메소드
         // 검사할 항목 하나만 주석 해제하여 실행
+         DataInitializer.initDB();                       // 검사에 필요한 사전 데이터를 insert하는 메소드
 
-        // makerTest.test01ViewFundingStatus();            // MAKER     - 프로젝트별 펀딩 현황 보기
-        // makerTest.test02RegisterProject();              // MAKER     - 프로젝트 기본 정보 등록
-        // makerTest.test03RegisterReward();               // MAKER     - 리워드 등록 및 프로젝트 신청
-        // adminTest.test04ApproveProject();               // ADMIN     - 프로젝트 등록 승인
-        // supporterTest.test05UpdateProfile();            // SUPPORTER - 개인정보 수정
-        // supporterTest.test06ViewProjects();             // SUPPORTER - 프로젝트 보기
-        // supporterTest.test07FilterProjects();           // SUPPORTER - 프로젝트 필터링
-        // supporterTest.test08ApplyReward();              // SUPPORTER - 리워드 신청
-        // supporterTest.test09RegisterReview();           // SUPPORTER - 리뷰 및 별점 등록
-        // supporterTest.test10ConcurrencyControl();       // SUPPORTER - 제공 가능 수량 동시성 제어
-        // supporterTest.test10bConcurrencyWithThreads();  // (선택)     - 스레드 6개 실제 동시 신청
+        makerTest.test01ViewFundingStatus();            // MAKER     - 프로젝트별 펀딩 현황 보기
+        makerTest.test02RegisterProject();              // MAKER     - 프로젝트 기본 정보 등록
+        makerTest.test03RegisterReward();               // MAKER     - 리워드 등록 및 프로젝트 신청
+        adminTest.test04ApproveProject();               // ADMIN     - 프로젝트 등록 승인
+//        supporterTest.test05UpdateProfile();            // SUPPORTER - 개인정보 수정
+//        supporterTest.test06ViewProjects();             // SUPPORTER - 프로젝트 보기
+//        supporterTest.test07FilterProjects();           // SUPPORTER - 프로젝트 필터링
+//        supporterTest.test08ApplyReward();              // SUPPORTER - 리워드 신청
+//        supporterTest.test09RegisterReview();           // SUPPORTER - 리뷰 및 별점 등록
+//        supporterTest.test10ConcurrencyControl();       // SUPPORTER - 제공 가능 수량 동시성 제어
+//        supporterTest.test10bConcurrencyWithThreads();  // (선택)     - 스레드 6개 실제 동시 신청
     }
-
-    /** 실행 인자 예) initDB test01 test02 test03 test04 test05 test06 test07 test08 test09 test10 */
+    /**
+     * 실행 인자 예) initDB test01 test02 test03 test04 test05 test06 test07 test08 test09 test10
+     */
     private static void runByArgs(String[] args, MakerTest maker, AdminTest admin, SupporterTest supporter) {
         for (String arg : args) {
             switch (arg) {
@@ -95,7 +95,9 @@ public class Main {
         }
     }
 
-    /** 자주 나는 오류에 해결 방법을 덧붙여 출력 */
+    /**
+     * 자주 나는 오류에 해결 방법을 덧붙여 출력
+     */
     private static void explainError(Thread thread, Throwable e) {
         StringBuilder all = new StringBuilder();
         for (Throwable t = e; t != null; t = t.getCause()) {
