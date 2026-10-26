@@ -60,17 +60,16 @@ public class Main {
         // 검사할 항목 하나만 주석 해제하여 실행
          DataInitializer.initDB();                       // 검사에 필요한 사전 데이터를 insert하는 메소드
 
-        makerTest.test01ViewFundingStatus();            // MAKER     - 프로젝트별 펀딩 현황 보기
-        makerTest.test02RegisterProject();              // MAKER     - 프로젝트 기본 정보 등록
-        makerTest.test03RegisterReward();               // MAKER     - 리워드 등록 및 프로젝트 신청
-        adminTest.test04ApproveProject();               // ADMIN     - 프로젝트 등록 승인
-//        supporterTest.test05UpdateProfile();            // SUPPORTER - 개인정보 수정
-//        supporterTest.test06ViewProjects();             // SUPPORTER - 프로젝트 보기
+//        makerTest.test01ViewFundingStatus();            // MAKER     - 프로젝트별 펀딩 현황 보기
+//        makerTest.test02RegisterProject();              // MAKER     - 프로젝트 기본 정보 등록
+//        makerTest.test03RegisterReward();               // MAKER     - 리워드 등록 및 프로젝트 신청
+//        adminTest.test04ApproveProject();               // ADMIN     - 프로젝트 등록 승인
+        supporterTest.test05UpdateProfile();            // SUPPORTER - 개인정보 수정
+        supporterTest.test06ViewProjects();             // SUPPORTER - 프로젝트 보기
 //        supporterTest.test07FilterProjects();           // SUPPORTER - 프로젝트 필터링
 //        supporterTest.test08ApplyReward();              // SUPPORTER - 리워드 신청
 //        supporterTest.test09RegisterReview();           // SUPPORTER - 리뷰 및 별점 등록
 //        supporterTest.test10ConcurrencyControl();       // SUPPORTER - 제공 가능 수량 동시성 제어
-//        supporterTest.test10bConcurrencyWithThreads();  // (선택)     - 스레드 6개 실제 동시 신청
     }
     /**
      * 실행 인자 예) initDB test01 test02 test03 test04 test05 test06 test07 test08 test09 test10
