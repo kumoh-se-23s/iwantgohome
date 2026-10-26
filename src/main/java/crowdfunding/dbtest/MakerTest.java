@@ -78,7 +78,7 @@ public class MakerTest {
     }
 
     /**
-     * [검사 2] 프로젝트 기본 정보 등록 → approval_status = 'draft' (작성 중)
+     * [검사 2] 프로젝트 기본 정보 등록, 상태 : 작성 중
      */
     public void test02RegisterProject() {
         ResultView.title("[검사 2] MAKER - 프로젝트 기본 정보 등록 (메이커 user " + MAKER_ID + ")");
@@ -125,7 +125,7 @@ public class MakerTest {
             TestSupport.attempt("승인 신청", () -> makerProjectService.submitProject(MAKER_ID, projectId));
         }
 
-        // 리워드 2개 등록 (1개는 수량 제한, 1개는 무제한), 제공시기는 마감 2주전
+        // 리워드 2개 등록 (1개는 수량 제한, 1개는 무제한), 제공시기는 마감 2주 후
         ResultView.section("② 리워드 등록");
         LocalDateTime delivery = project.getEndDate().plusDays(14).atStartOfDay();
         Reward limited = Reward.of("얼리버드 가습기", "가습기 1개 (얼리버드 할인)", 19_000, 10, delivery);
