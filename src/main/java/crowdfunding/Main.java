@@ -63,7 +63,7 @@ public class Main {
 //        makerTest.test01ViewFundingStatus();            // MAKER     - 프로젝트별 펀딩 현황 보기
 //        makerTest.test02RegisterProject();              // MAKER     - 프로젝트 기본 정보 등록
 //        makerTest.test03RegisterReward();               // MAKER     - 리워드 등록 및 프로젝트 신청
-//        adminTest.test04ApproveProject();               // ADMIN     - 프로젝트 등록 승인
+        adminTest.test04ApproveProject();               // ADMIN     - 프로젝트 등록 승인
         supporterTest.test05UpdateProfile();            // SUPPORTER - 개인정보 수정
         supporterTest.test06ViewProjects();             // SUPPORTER - 프로젝트 보기
 //        supporterTest.test07FilterProjects();           // SUPPORTER - 프로젝트 필터링
@@ -88,7 +88,6 @@ public class Main {
                 case "test08" -> supporter.test08ApplyReward();
                 case "test09" -> supporter.test09RegisterReview();
                 case "test10" -> supporter.test10ConcurrencyControl();
-                case "test10b" -> supporter.test10bConcurrencyWithThreads();
                 default -> System.out.println("알 수 없는 항목: " + arg);
             }
         }
