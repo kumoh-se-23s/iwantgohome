@@ -92,8 +92,8 @@ public class SupporterTest {
         ResultView.profile("수정 전", myPageService.findUser(TEST05_USER_ID), myPageService.findSupporter(TEST05_USER_ID));
         MyInfoForm form = new MyInfoForm(TEST05_NEW_NAME, TEST05_NEW_PHONE, TEST05_CURRENT_PW, TEST05_NEW_PW,
                 TEST05_NEW_ADDRESS, TEST05_NEW_BIRTH);
-        TestSupport.attempt("개인정보 수정 (user · supporter 두 테이블을 한 트랜잭션으로)",
-                () -> myPageService.updateMyInfo(TEST05_USER_ID, form));
+        TestSupport.attempt("개인정보 수정",
+                () -> myPageService.updateMyInfo(TEST05_USER_ID, form)); //(user · supporter 두 테이블을 한 트랜잭션으로)
         ResultView.profile("수정 후", myPageService.findUser(TEST05_USER_ID), myPageService.findSupporter(TEST05_USER_ID));
 
         ResultView.checkSql("SELECT u.user_id, u.user_name, u.phone_number, u.pw, s.delivery_address, s.birth_date "
@@ -103,7 +103,7 @@ public class SupporterTest {
     /** [검사 6] 프로젝트 보기 (기본: 조건 없이 승인된 프로젝트 전체, 최신순) */
     public void test06ViewProjects() {
         ResultView.title("[검사 6] SUPPORTER - 프로젝트 보기 (승인된 프로젝트만, 최신순)");
-        ResultView.info("승인 대기·거절된 프로젝트는 서포터에게 보이지 않아야 정상");
+        //승인 대기·거절된 프로젝트는 서포터에게 보이지 않아야 정상
         ResultView.projects(projectSearchService.search(new ProjectSearchCondition()));
         ResultView.checkSql("SELECT project_id, project_name, approval_status, project_status, end_date "
                 + "FROM project ORDER BY created_at DESC;");

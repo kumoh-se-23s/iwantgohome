@@ -146,6 +146,7 @@ public final class ResultView {
                 p.getStartDate(), p.getEndDate(), won(p.getTargetAmount())));
     }
 
+
     public static void reward(String label, Reward r) {
         if (r == null) {
             info(label + ": (없음)");
