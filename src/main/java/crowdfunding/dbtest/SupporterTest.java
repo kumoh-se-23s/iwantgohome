@@ -210,14 +210,16 @@ public class SupporterTest {
         ResultView.section("신청 전");
         printRewardState(TEST10_REWARD_ID);
 
-        ResultView.section("케이스 1. 수량이 충분 → 펀딩 성공 (서포터 user " + TEST10_SUPPORTER_A + ")");
+        ResultView.section("케이스 1. 수량이 충분 → 펀딩 성공 (서포터 user " + TEST10_SUPPORTER_A
+                + " → 리워드 " + TEST10_REWARD_ID + " 후원)");
         TestSupport.attempt("리워드 신청",
                 () -> fundingService.applyReward(TEST10_SUPPORTER_A, TEST10_PROJECT_ID, TEST10_REWARD_ID));
         printRewardState(TEST10_REWARD_ID);
         ResultView.funding("user " + TEST10_SUPPORTER_A + " 후원 기록",
                 fundingService.findFunding(TEST10_SUPPORTER_A, TEST10_PROJECT_ID));
 
-        ResultView.section("케이스 2. 수량이 부족 → 펀딩 실패 (서포터 user " + TEST10_SUPPORTER_B + ")");
+        ResultView.section("케이스 2. 수량이 부족 → 펀딩 실패 (서포터 user " + TEST10_SUPPORTER_B
+                + " → 리워드 " + TEST10_REWARD_ID + " 후원)");
         TestSupport.attempt("리워드 신청",
                 () -> fundingService.applyReward(TEST10_SUPPORTER_B, TEST10_PROJECT_ID, TEST10_REWARD_ID));
         printRewardState(TEST10_REWARD_ID);
@@ -229,7 +231,6 @@ public class SupporterTest {
                         + TEST10_REWARD_ID + ";",
                 "SELECT * FROM funding WHERE reward_id = " + TEST10_REWARD_ID + " ORDER BY funded_date;");
     }
-
     /**
      * (선택) 실제 동시 신청 테스트 - 질문을 받으면 보여 줄 용도
      * 잔여 2개인 리워드에 서포터 6명이 "동시에" 신청 → 정확히 2명만 성공해야 한다.
@@ -284,9 +285,19 @@ public class SupporterTest {
         ResultView.info("성공 " + successCount + "명 (기대값: 잔여 수량만큼만 성공)");
     }
 
-    /** 리워드 수량 상태와 실제 후원 기록 수를 같이 출력 (두 값이 항상 같아야 정상) */
+    /** 리워드 상태 출력: 남은 수량 / 총 수량 / 후원한 사람 수 + 실제 후원 기록 수 (값은 매번 DB 에서 새로 읽는다) */
     private void printRewardState(int rewardId) {
-        ResultView.reward("리워드", fundingService.findReward(rewardId));
+        var reward = fundingService.findReward(rewardId);
+        if (reward == null) {
+            ResultView.info("리워드 " + rewardId + ": (없음)");
+            return;
+        }
+        String stock = reward.isLimited()
+                ? "남은 수량 " + reward.getRemaining() + "개  (총 " + reward.getRewardAmount()
+                + "개 · 지금까지 " + reward.getAppliedCount() + "명 후원)"
+                : "남은 수량 무제한  (지금까지 " + reward.getAppliedCount() + "명 후원)";
+        ResultView.info("리워드: 리워드 " + reward.getRewardId() + " [" + reward.getRewardName() + "] "
+                + ResultView.won(reward.getRewardPrice()) + "  |  " + stock);
         ResultView.info("이 리워드의 후원 기록: " + fundingService.countFundingsOfReward(rewardId) + "건");
     }
 }
