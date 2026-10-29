@@ -25,7 +25,7 @@ import java.util.concurrent.Future;
  *   [검사 5]  test05UpdateProfile      : (MyPage) 개인정보 수정
  *   [검사 6]  test06ViewProjects       : 프로젝트 보기(기본)
  *   [검사 7]  test07FilterProjects     : 프로젝트 필터링 (카테고리, 진행/마감)
- *   [검사 8]  test08ApplyReward        : 리워드 신청 (프로젝트당 리워드 1개)
+ *   [검사 8]  test08ApplyRewardK        : 리워드 신청 (프로젝트당 리워드 1개)
  *   [검사 9]  test09RegisterReview     : 리뷰와 별점 등록 (마감 + 펀딩 성공 프로젝트)
  *   [검사 10] test10ConcurrencyControl : 제공 가능 수량 동시성 제어
  *   (선택)    test10bConcurrencyWithThreads : 실제 스레드로 동시에 신청
