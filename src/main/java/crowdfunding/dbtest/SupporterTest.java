@@ -295,7 +295,7 @@ public class SupporterTest {
         String stock = reward.isLimited()
                 ? "남은 수량 " + reward.getRemaining() + "개  (총 " + reward.getRewardAmount()
                 + "개 · 지금까지 " + reward.getAppliedCount() + "명 후원)"
-                : "남은 수량 무제한  (지금까지 " + reward.getAppliedCount() + "명 후원)";
+                : "남은 수량 무제한  (지금까지 " + reward.getAppliedCount() + "명 후원 )";
         ResultView.info("리워드: 리워드 " + reward.getRewardId() + " [" + reward.getRewardName() + "] "
                 + ResultView.won(reward.getRewardPrice()) + "  |  " + stock);
         ResultView.info("이 리워드의 후원 기록: " + fundingService.countFundingsOfReward(rewardId) + "건");
